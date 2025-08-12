@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario y Ventas - Casa Zapato</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .inventory-table { font-size: 0.75rem; }
+            .inventory-input { padding: 0.25rem; }
+            .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+        
+        /* Prevent zoom on input focus for iOS */
+        input[type="number"], input[type="text"], input[type="password"], select {
+            font-size: 16px;
+        }
+        
+        /* Better touch targets */
+        @media (max-width: 768px) {
+            button { min-height: 44px; }
+            input, select { min-height: 44px; }
+        }
+        
+        /* Hide number input arrows */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Casa Zapato</h1>
+                <p class="text-gray-600">Sistema de Inventario y Ventas</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
+                    <select id="userSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Seleccionar usuario</option>
+                        <option value="admin">Administrador</option>
+                        <option value="empleada1">Empleada 1</option>
+                        <option value="empleada2">Empleada 2</option>
+                        <option value="empleada3">Empleada 3</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
+                    <div class="relative">
+                        <input type="password" id="passwordInput" class="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ingrese su contraseña">
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <svg id="eyeIcon" class="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eyeOffIcon" class="h-5 w-5 text-gray-400 hover:text-gray-600 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L8.464 8.464m1.414 1.414L8.464 8.464m5.656 5.656l1.415 1.415m-1.415-1.415l1.415 1.415M14.828 14.828L16.243 16.243" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200">
+                    Iniciar Sesión
+                </button>
+                
+                <div id="loginError" class="text-red-500 text-sm text-center hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <h1 class="text-2xl font-bold text-gray-800">Casa Zapato</h1>
+                        <span id="userInfo" class="ml-4 text-sm text-gray-600"></span>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button onclick="showInventory()" id="inventoryBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                            Inventario
+                        </button>
+                        <button onclick="showSales()" id="salesBtn" class="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-green-700 transition duration-200">
+                            Ventas
+                        </button>
+                        <button onclick="showReports()" id="reportsBtn" class="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-purple-700 transition duration-200 hidden">
+                            Reportes
+                        </button>
+                        <button onclick="showInventoryData()" id="inventoryDataBtn" class="px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-orange-700 transition duration-200 hidden">
+                            Datos de Inventario
+                        </button>
+                        <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200">
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Inventory Section -->
+        <div id="inventorySection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Inventario Diario</h2>
+                        <p class="text-gray-600 mt-1">Realice su conteo diario de inventario</p>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="exportInventory()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200">
+                            📊 Exportar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto mobile-scroll">
+                    <table class="w-full border-collapse border border-gray-300 inventory-table">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Zapato</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">12</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">12½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">13</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">13½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">14</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">14½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">15</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">15½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">16</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">16½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">17</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">17½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">18</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">18½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">19</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">19½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">20</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">20½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">21</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">21½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">22</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">22½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">23</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">23½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">24</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">24½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">25</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">25½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">26</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">26½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">27</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">27½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">28</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">28½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">29</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">29½</th>
+                                <th class="border border-gray-300 px-1 py-3 text-center font-semibold text-xs">30</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTable">
+                            <!-- Inventory rows will be generated here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button onclick="saveInventory()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200">
+                        Guardar Inventario
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sales Section -->
+        <div id="salesSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Registro de Ventas</h2>
+                    <button onclick="exportSales()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200">
+                        📊 Exportar a Excel
+                    </button>
+                </div>
+                
+                <!-- Sales Form -->
+                <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4">Registrar Nueva Venta</h3>
+                    <form id="salesForm" onsubmit="addSale(event)">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                                <input type="date" id="saleDate" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Zapato</label>
+                                <select id="saleShoe" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccionar</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                    <option value="G">G</option>
+                                    <option value="H">H</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Talla</label>
+                                <select id="saleSize" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccionar</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Para Quién</label>
+                                <select id="saleCategory" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccionar</option>
+                                    <option value="Niño">Niño</option>
+                                    <option value="Niña">Niña</option>
+                                    <option value="Mujer">Mujer</option>
+                                    <option value="Hombre">Hombre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                                <select id="saleModel" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Seleccionar</option>
+                                    <option value="Huarache">Huarache</option>
+                                    <option value="Tenis">Tenis</option>
+                                    <option value="Sandalia">Sandalia</option>
+                                    <option value="Zapato Escolar">Zapato Escolar</option>
+                                    <option value="Bota">Bota</option>
+                                    <option value="Zapato Casual">Zapato Casual</option>
+                                    <option value="Zapato Formal">Zapato Formal</option>
+                                    <option value="Chancla">Chancla</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                                <input type="text" id="saleColor" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ej: Rojo, Negro, Azul">
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-center">
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-semibold transition duration-200 shadow-lg">
+                                ✅ Registrar Venta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Sales Table -->
+                <div class="overflow-x-auto mobile-scroll">
+                    <table class="w-full border-collapse border border-gray-300 inventory-table">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Fecha</th>
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Zapato</th>
+                                <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Talla</th>
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Modelo</th>
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Para Quién</th>
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Color</th>
+                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Empleado</th>
+                                <th id="actionsHeader" class="border border-gray-300 px-4 py-3 text-center font-semibold hidden">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesTable">
+                            <!-- Sales rows will be generated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Data Section -->
+        <div id="inventoryDataSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Datos de Inventario por Empleadas</h2>
+                
+                <!-- Date Filter -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Filtrar por fecha</label>
+                            <input type="date" id="inventoryDateFilter" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="filterInventoryData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200">
+                                Filtrar
+                            </button>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="showAllInventoryData()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition duration-200">
+                                Mostrar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Inventory Data List -->
+                <div id="inventoryDataList" class="space-y-6">
+                    <!-- Inventory data will be rendered here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div id="reportsSection" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Reportes y Análisis</h2>
+                
+                <!-- Admin Notifications -->
+                <div id="adminNotifications" class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2L3 7v11c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V7l-7-5zM10 12c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm1-3H9V5h2v4z"/>
+                        </svg>
+                        Notificaciones de Inventario Diario
+                        <span id="notificationBadge" class="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full hidden">0</span>
+                    </h3>
+                    <div id="notificationsList" class="space-y-3 mb-6">
+                        <div class="text-gray-500 text-sm italic">No hay notificaciones nuevas</div>
+                    </div>
+                    <button onclick="clearNotifications()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">
+                        Limpiar Notificaciones
+                    </button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Zapato</label>
+                            <select id="filterShoe" class="w-full p-3 border border-gray-300 rounded-lg">
+                                <option value="">Todos</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="G">G</option>
+                                <option value="H">H</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Para Quién</label>
+                            <select id="filterCategory" class="w-full p-3 border border-gray-300 rounded-lg">
+                                <option value="">Todos</option>
+                                <option value="Niño">Niño</option>
+                                <option value="Niña">Niña</option>
+                                <option value="Mujer">Mujer</option>
+                                <option value="Hombre">Hombre</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                            <input type="text" id="filterColor" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Filtrar por color">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Modelo</label>
+                            <select id="filterModel" class="w-full p-3 border border-gray-300 rounded-lg">
+                                <option value="">Todos</option>
+                                <option value="Huarache">Huarache</option>
+                                <option value="Tenis">Tenis</option>
+                                <option value="Sandalia">Sandalia</option>
+                                <option value="Zapato Escolar">Zapato Escolar</option>
+                                <option value="Bota">Bota</option>
+                                <option value="Zapato Casual">Zapato Casual</option>
+                                <option value="Zapato Formal">Zapato Formal</option>
+                                <option value="Chancla">Chancla</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Talla</label>
+                            <select id="filterSize" class="w-full p-3 border border-gray-300 rounded-lg">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-center">
+                        <button onclick="generateReport()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200">
+                            Generar Reporte
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Statistics Section -->
+                <div id="statisticsSection" class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4">📊 Estadísticas Generales</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <div class="bg-blue-50 rounded-lg p-6 border-l-4 border-blue-500">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📦</span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-blue-600">Total en Inventario</p>
+                                    <p id="totalInventory" class="text-2xl font-bold text-blue-900">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-green-50 rounded-lg p-6 border-l-4 border-green-500">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">💰</span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-green-600">Total Vendido</p>
+                                    <p id="totalSold" class="text-2xl font-bold text-green-900">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-purple-50 rounded-lg p-6 border-l-4 border-purple-500">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">👟</span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-purple-600">Zapato Más Vendido</p>
+                                    <p id="topShoe" class="text-2xl font-bold text-purple-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-orange-50 rounded-lg p-6 border-l-4 border-orange-500">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📏</span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-orange-600">Talla Más Vendida</p>
+                                    <p id="topSize" class="text-2xl font-bold text-orange-900">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Statistics -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+                            <h4 class="text-md font-semibold text-gray-800 mb-4">🎯 Por Categoría</h4>
+                            <div id="categoryStats" class="space-y-2">
+                                <!-- Category stats will be generated here -->
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+                            <h4 class="text-md font-semibold text-gray-800 mb-4">🎨 Colores Más Populares</h4>
+                            <div id="colorStats" class="space-y-2">
+                                <!-- Color stats will be generated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Low Stock Alert -->
+                    <div class="mt-6">
+                        <h4 class="text-md font-semibold text-gray-800 mb-4">⚠️ Stock Bajo (Menos de 5 unidades)</h4>
+                        <div id="lowStockAlert" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <!-- Low stock items will be generated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Report Results -->
+                <div id="reportResults" class="hidden">
+                    <h3 class="text-lg font-semibold mb-4">Productos Más Vendidos</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse border border-gray-300">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Zapato</th>
+                                    <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Total Vendido</th>
+                                    <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Tallas Más Vendidas</th>
+                                    <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Colores Más Vendidos</th>
+                                    <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Categoría Principal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTable">
+                                <!-- Report rows will be generated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let userRole = null;
+        let inventory = {};
+        let sales = [];
+        let dailyInventories = {};
+        let adminNotifications = [];
+
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('passwordInput');
+            const eyeIcon = document.getElementById('eyeIcon');
+            const eyeOffIcon = document.getElementById('eyeOffIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.add('hidden');
+                eyeOffIcon.classList.remove('hidden');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('hidden');
+                eyeOffIcon.classList.add('hidden');
+            }
+        }
+
+        // Login function
+        function login() {
+            const user = document.getElementById('userSelect').value;
+            const password = document.getElementById('passwordInput').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            // Clear previous errors
+            errorDiv.classList.add('hidden');
+            
+            // Validate inputs
+            if (!user) {
+                errorDiv.textContent = 'Por favor seleccione un usuario';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!password) {
+                errorDiv.textContent = 'Por favor ingrese la contraseña';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Check credentials
+            const credentials = {
+                'admin': 'CasaZapato',
+                'empleada1': 'A123',
+                'empleada2': 'B123',
+                'empleada3': 'C123'
+            };
+            
+            if (credentials[user] && credentials[user] === password) {
+                currentUser = user;
+                userRole = user === 'admin' ? 'admin' : 'employee';
+                
+                // Hide login screen and show main app
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                
+                // Set user info
+                const userNames = {
+                    'admin': 'Administrador',
+                    'empleada1': 'Empleada 1',
+                    'empleada2': 'Empleada 2',
+                    'empleada3': 'Empleada 3'
+                };
+                document.getElementById('userInfo').textContent = `Usuario: ${userNames[user]}`;
+                
+                // Show/hide admin features
+                if (userRole === 'admin') {
+                    document.getElementById('reportsBtn').classList.remove('hidden');
+                    document.getElementById('inventoryDataBtn').classList.remove('hidden');
+                    document.getElementById('actionsHeader').classList.remove('hidden');
+                }
+                
+                // Initialize the app
+                init();
+                
+                // Clear login form
+                document.getElementById('userSelect').value = '';
+                document.getElementById('passwordInput').value = '';
+            } else {
+                errorDiv.textContent = 'Usuario o contraseña incorrectos';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // Initialize the application
+        function init() {
+            loadData();
+            
+            // Initialize inventory structure if empty
+            if (Object.keys(inventory).length === 0) {
+                initializeInventoryStructure();
+            }
+            
+            // Set today's date as default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('saleDate').value = today;
+            
+            // Populate size selectors
+            populateSizeSelectors();
+            
+            // Show inventory by default
+            showInventory();
+        }
+        
+        // Initialize inventory structure
+        function initializeInventoryStructure() {
+            const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const sizes = [];
+            for (let size = 12; size <= 30; size++) {
+                sizes.push(size);
+                if (size < 30) sizes.push(size + 0.5);
+            }
+            shoes.forEach(shoe => {
+                inventory[shoe] = {};
+                sizes.forEach(size => {
+                    inventory[shoe][size] = 0;
+                });
+            });
+        }
+
+        // Populate size selectors
+        function populateSizeSelectors() {
+            const saleSize = document.getElementById('saleSize');
+            const filterSize = document.getElementById('filterSize');
+            
+            for (let size = 12; size <= 30; size++) {
+                const option1 = new Option(size, size);
+                const option2 = new Option(size, size);
+                saleSize.appendChild(option1);
+                filterSize.appendChild(option2);
+                
+                if (size < 30) {
+                    const halfSize = size + 0.5;
+                    const option1Half = new Option(size + '½', halfSize);
+                    const option2Half = new Option(size + '½', halfSize);
+                    saleSize.appendChild(option1Half);
+                    filterSize.appendChild(option2Half);
+                }
+            }
+        }
+
+        // Logout function
+        function logout() {
+            currentUser = null;
+            userRole = null;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('userSelect').value = '';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        // Show inventory section
+        function showInventory() {
+            document.getElementById('inventorySection').classList.remove('hidden');
+            document.getElementById('salesSection').classList.add('hidden');
+            document.getElementById('reportsSection').classList.add('hidden');
+            
+            // Update button states
+            document.getElementById('inventoryBtn').classList.add('bg-blue-600');
+            document.getElementById('inventoryBtn').classList.remove('bg-gray-400');
+            document.getElementById('salesBtn').classList.remove('bg-green-600');
+            document.getElementById('salesBtn').classList.add('bg-gray-400');
+            if (userRole === 'admin') {
+                document.getElementById('reportsBtn').classList.remove('bg-purple-600');
+                document.getElementById('reportsBtn').classList.add('bg-gray-400');
+            }
+            
+            renderInventory();
+        }
+
+        // Show sales section
+        function showSales() {
+            document.getElementById('inventorySection').classList.add('hidden');
+            document.getElementById('salesSection').classList.remove('hidden');
+            document.getElementById('reportsSection').classList.add('hidden');
+            
+            // Update button states
+            document.getElementById('inventoryBtn').classList.remove('bg-blue-600');
+            document.getElementById('inventoryBtn').classList.add('bg-gray-400');
+            document.getElementById('salesBtn').classList.add('bg-green-600');
+            document.getElementById('salesBtn').classList.remove('bg-gray-400');
+            if (userRole === 'admin') {
+                document.getElementById('reportsBtn').classList.remove('bg-purple-600');
+                document.getElementById('reportsBtn').classList.add('bg-gray-400');
+            }
+            
+            renderSales();
+        }
+
+        // Show inventory data section
+        function showInventoryData() {
+            if (userRole !== 'admin') return;
+            
+            document.getElementById('inventorySection').classList.add('hidden');
+            document.getElementById('salesSection').classList.add('hidden');
+            document.getElementById('reportsSection').classList.add('hidden');
+            document.getElementById('inventoryDataSection').classList.remove('hidden');
+            
+            // Update button states
+            document.getElementById('inventoryBtn').classList.remove('bg-blue-600');
+            document.getElementById('inventoryBtn').classList.add('bg-gray-400');
+            document.getElementById('salesBtn').classList.remove('bg-green-600');
+            document.getElementById('salesBtn').classList.add('bg-gray-400');
+            document.getElementById('reportsBtn').classList.remove('bg-purple-600');
+            document.getElementById('reportsBtn').classList.add('bg-gray-400');
+            document.getElementById('inventoryDataBtn').classList.add('bg-orange-600');
+            document.getElementById('inventoryDataBtn').classList.remove('bg-gray-400');
+            
+            renderInventoryData();
+        }
+
+        // Show reports section
+        function showReports() {
+            if (userRole !== 'admin') return;
+            
+            document.getElementById('inventorySection').classList.add('hidden');
+            document.getElementById('salesSection').classList.add('hidden');
+            document.getElementById('inventoryDataSection').classList.add('hidden');
+            document.getElementById('reportsSection').classList.remove('hidden');
+            
+            // Update button states
+            document.getElementById('inventoryBtn').classList.remove('bg-blue-600');
+            document.getElementById('inventoryBtn').classList.add('bg-gray-400');
+            document.getElementById('salesBtn').classList.remove('bg-green-600');
+            document.getElementById('salesBtn').classList.add('bg-gray-400');
+            document.getElementById('inventoryDataBtn').classList.remove('bg-orange-600');
+            document.getElementById('inventoryDataBtn').classList.add('bg-gray-400');
+            document.getElementById('reportsBtn').classList.add('bg-purple-600');
+            document.getElementById('reportsBtn').classList.remove('bg-gray-400');
+            
+            renderNotifications();
+            renderStatistics();
+        }
+
+        // Check inventory status for employees
+        function checkInventoryStatus() {
+            if (userRole === 'admin') return;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const userKey = `${currentUser}_${today}`;
+            
+            if (dailyInventories[userKey]) {
+                // Employee already completed inventory today - disable inputs
+                const inputs = document.querySelectorAll('#inventoryTable input');
+                inputs.forEach(input => {
+                    input.disabled = true;
+                    input.classList.add('bg-gray-100', 'cursor-not-allowed');
+                });
+                
+                // Disable save button
+                const saveButton = document.querySelector('button[onclick="saveInventory()"]');
+                if (saveButton) {
+                    saveButton.disabled = true;
+                    saveButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    saveButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    saveButton.textContent = 'Inventario Ya Realizado';
+                }
+                
+                // Show status message
+                const inventorySection = document.getElementById('inventorySection');
+                let statusMessage = inventorySection.querySelector('.status-message');
+                if (!statusMessage) {
+                    statusMessage = document.createElement('div');
+                    statusMessage.className = 'status-message bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6';
+                    statusMessage.innerHTML = `
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            <strong>Inventario realizado correctamente.</strong> Espere hasta el siguiente día para realizar otro inventario.
+                        </div>
+                    `;
+                    inventorySection.querySelector('.bg-white').insertBefore(statusMessage, inventorySection.querySelector('.bg-white').firstChild.nextSibling);
+                }
+            }
+        }
+
+        // Render inventory table
+        function renderInventory() {
+            const tbody = document.getElementById('inventoryTable');
+            tbody.innerHTML = '';
+            
+            const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const today = new Date().toISOString().split('T')[0];
+            const userKey = `${currentUser}_${today}`;
+            const isDisabled = userRole !== 'admin' && dailyInventories[userKey];
+            
+            shoes.forEach(shoe => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                let html = `<td class="border border-gray-300 px-4 py-3 font-semibold bg-blue-50">${shoe}</td>`;
+                
+                for (let size = 12; size <= 30; size++) {
+                    // Regular size
+                    const quantity = inventory[shoe] && inventory[shoe][size] ? inventory[shoe][size] : 0;
+                    const disabledClass = isDisabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white';
+                    html += `<td class="border border-gray-300 px-1 py-3 text-center">
+                        <input type="number" min="0" value="${quantity}" 
+                               class="w-full text-center border border-gray-300 ${disabledClass} focus:ring-1 focus:ring-blue-500 rounded inventory-input text-xs"
+                               ${isDisabled ? 'disabled' : ''}
+                               onchange="updateInventory('${shoe}', ${size}, this.value)">
+                    </td>`;
+                    
+                    // Half size (except for 30)
+                    if (size < 30) {
+                        const halfSize = size + 0.5;
+                        const halfQuantity = inventory[shoe] && inventory[shoe][halfSize] ? inventory[shoe][halfSize] : 0;
+                        html += `<td class="border border-gray-300 px-1 py-3 text-center">
+                            <input type="number" min="0" value="${halfQuantity}" 
+                                   class="w-full text-center border border-gray-300 ${disabledClass} focus:ring-1 focus:ring-blue-500 rounded inventory-input text-xs"
+                                   ${isDisabled ? 'disabled' : ''}
+                                   onchange="updateInventory('${shoe}', ${halfSize}, this.value)">
+                        </td>`;
+                    }
+                }
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+            
+            // Check and update status after rendering
+            setTimeout(checkInventoryStatus, 100);
+        }
+
+        // Update inventory
+        function updateInventory(shoe, size, value) {
+            if (!inventory[shoe]) inventory[shoe] = {};
+            inventory[shoe][size] = parseInt(value) || 0;
+        }
+
+        // Save inventory
+        function saveInventory() {
+            const today = new Date().toISOString().split('T')[0];
+            const userKey = `${currentUser}_${today}`;
+            
+            // Check if employee already saved inventory today
+            if (userRole !== 'admin' && dailyInventories[userKey]) {
+                alert('Ya realizó su inventario el día de hoy. Espere hasta mañana para realizar otro inventario.');
+                return;
+            }
+            
+            // If admin, show confirmation dialog
+            if (userRole === 'admin') {
+                if (!confirm('¿Está seguro de que desea guardar estos cambios en el inventario?')) {
+                    return;
+                }
+                
+                const password = prompt('Ingrese la contraseña de administrador para confirmar los cambios:');
+                if (password !== 'CasaZapato') {
+                    alert('Contraseña incorrecta. No se guardaron los cambios.');
+                    return;
+                }
+            }
+            
+            // Save current inventory as daily inventory
+            dailyInventories[userKey] = JSON.parse(JSON.stringify(inventory));
+            
+            // Create notification for admin if not admin
+            if (userRole !== 'admin') {
+                const userNames = {
+                    'empleada1': 'Empleada 1',
+                    'empleada2': 'Empleada 2',
+                    'empleada3': 'Empleada 3'
+                };
+                
+                const notification = {
+                    id: Date.now(),
+                    employee: userNames[currentUser] || currentUser,
+                    date: today,
+                    timestamp: new Date().toLocaleString()
+                };
+                
+                adminNotifications.push(notification);
+                
+                alert('Inventario realizado correctamente. Espere hasta el siguiente día para realizar otro inventario.');
+            } else {
+                alert('Inventario guardado correctamente. Los cambios se han aplicado al sistema.');
+            }
+            
+            saveData();
+            checkInventoryStatus();
+            
+            // Refresh inventory display to show updated values
+            renderInventory();
+        }
+
+        // Render sales table
+        function renderSales() {
+            const tbody = document.getElementById('salesTable');
+            tbody.innerHTML = '';
+            
+            sales.forEach((sale, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                
+                let html = `
+                    <td class="border border-gray-300 px-4 py-3">${sale.date}</td>
+                    <td class="border border-gray-300 px-4 py-3 font-semibold">${sale.shoe}</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center">${sale.size}</td>
+                    <td class="border border-gray-300 px-4 py-3">${sale.model || '-'}</td>
+                    <td class="border border-gray-300 px-4 py-3">${sale.category}</td>
+                    <td class="border border-gray-300 px-4 py-3">${sale.color}</td>
+                    <td class="border border-gray-300 px-4 py-3">${sale.employee}</td>
+                `;
+                
+                if (userRole === 'admin') {
+                    html += `<td class="border border-gray-300 px-4 py-3 text-center">
+                        <button onclick="deleteSale(${index})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm transition duration-200">
+                            Eliminar
+                        </button>
+                    </td>`;
+                }
+                
+                row.innerHTML = html;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Add sale
+        function addSale(event) {
+            event.preventDefault();
+            
+            // Get form values
+            const date = document.getElementById('saleDate').value;
+            const shoe = document.getElementById('saleShoe').value;
+            const size = parseFloat(document.getElementById('saleSize').value);
+            const model = document.getElementById('saleModel').value;
+            const category = document.getElementById('saleCategory').value;
+            const color = document.getElementById('saleColor').value;
+            
+            // Validate all required fields
+            if (!date || !shoe || !size || !model || !category || !color) {
+                alert('Por favor complete todos los campos');
+                return;
+            }
+            
+            // Check stock availability
+            if (!inventory[shoe] || !inventory[shoe][size] || inventory[shoe][size] < 1) {
+                alert(`Stock insuficiente para ${shoe} talla ${size}`);
+                return;
+            }
+            
+            // Get user display name
+            const userNames = {
+                'admin': 'Administrador',
+                'empleada1': 'Empleada 1',
+                'empleada2': 'Empleada 2',
+                'empleada3': 'Empleada 3'
+            };
+            
+            // Create sale object
+            const sale = {
+                date: date,
+                shoe: shoe,
+                quantity: 1,
+                size: size,
+                model: model,
+                category: category,
+                color: color.trim(),
+                employee: userNames[currentUser] || currentUser,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Add sale to array
+            sales.push(sale);
+            
+            // Update inventory
+            inventory[shoe][size] = Math.max(0, inventory[shoe][size] - 1);
+            
+            // Save data
+            saveData();
+            
+            // Clear form
+            document.getElementById('salesForm').reset();
+            document.getElementById('saleDate').value = new Date().toISOString().split('T')[0];
+            
+            // Refresh displays
+            renderSales();
+            if (userRole === 'admin') {
+                renderNotifications();
+            renderStatistics();
+            }
+            
+            alert(`Venta registrada: ${shoe} talla ${size}`);
+        }
+
+        // Delete sale
+        function deleteSale(index) {
+            if (confirm('¿Está seguro de que desea eliminar esta venta?')) {
+                const sale = sales[index];
+                
+                // Restore inventory
+                if (!inventory[sale.shoe]) inventory[sale.shoe] = {};
+                if (!inventory[sale.shoe][sale.size]) inventory[sale.shoe][sale.size] = 0;
+                inventory[sale.shoe][sale.size] += sale.quantity;
+                
+                // Remove sale
+                sales.splice(index, 1);
+                
+                saveData();
+                renderSales();
+                alert('Venta eliminada correctamente');
+            }
+        }
+
+        // Export inventory
+        function exportInventory() {
+            const wb = XLSX.utils.book_new();
+            const wsData = [];
+            
+            // Header
+            const header = ['Zapato'];
+            for (let size = 12; size <= 30; size++) {
+                header.push(`Talla ${size}`);
+                if (size < 30) header.push(`Talla ${size}½`);
+            }
+            wsData.push(header);
+            
+            // Data
+            const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            shoes.forEach(shoe => {
+                const row = [shoe];
+                for (let size = 12; size <= 30; size++) {
+                    row.push(inventory[shoe] && inventory[shoe][size] ? inventory[shoe][size] : 0);
+                    if (size < 30) {
+                        const halfSize = size + 0.5;
+                        row.push(inventory[shoe] && inventory[shoe][halfSize] ? inventory[shoe][halfSize] : 0);
+                    }
+                }
+                wsData.push(row);
+            });
+            
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+            
+            const fileName = `Inventario_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // Export sales to Excel
+        function exportSales() {
+            const wb = XLSX.utils.book_new();
+            const wsData = [];
+            
+            // Header
+            wsData.push(['Fecha', 'Zapato', 'Talla', 'Modelo', 'Para Quién', 'Color', 'Empleado']);
+            
+            // Data
+            sales.forEach(sale => {
+                wsData.push([sale.date, sale.shoe, sale.size, sale.model || '-', sale.category, sale.color, sale.employee]);
+            });
+            
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+            XLSX.writeFile(wb, `Ventas_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        // Render statistics
+        function renderStatistics() {
+            // Calculate total inventory
+            let totalInventory = 0;
+            const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            shoes.forEach(shoe => {
+                for (let size = 12; size <= 30; size++) {
+                    totalInventory += inventory[shoe] && inventory[shoe][size] ? inventory[shoe][size] : 0;
+                    if (size < 30) {
+                        const halfSize = size + 0.5;
+                        totalInventory += inventory[shoe] && inventory[shoe][halfSize] ? inventory[shoe][halfSize] : 0;
+                    }
+                }
+            });
+            
+            // Calculate total sold
+            let totalSold = 0;
+            sales.forEach(sale => {
+                totalSold += sale.quantity;
+            });
+            
+            // Find top shoe
+            const shoeStats = {};
+            sales.forEach(sale => {
+                shoeStats[sale.shoe] = (shoeStats[sale.shoe] || 0) + sale.quantity;
+            });
+            const topShoe = Object.keys(shoeStats).sort((a, b) => shoeStats[b] - shoeStats[a])[0] || '-';
+            
+            // Find top size
+            const sizeStats = {};
+            sales.forEach(sale => {
+                sizeStats[sale.size] = (sizeStats[sale.size] || 0) + sale.quantity;
+            });
+            const topSize = Object.keys(sizeStats).sort((a, b) => sizeStats[b] - sizeStats[a])[0] || '-';
+            
+            // Update main statistics
+            document.getElementById('totalInventory').textContent = totalInventory.toLocaleString();
+            document.getElementById('totalSold').textContent = totalSold.toLocaleString();
+            document.getElementById('topShoe').textContent = topShoe;
+            document.getElementById('topSize').textContent = topSize;
+            
+            // Category statistics
+            const categoryStats = {};
+            sales.forEach(sale => {
+                categoryStats[sale.category] = (categoryStats[sale.category] || 0) + sale.quantity;
+            });
+            
+            const categoryStatsDiv = document.getElementById('categoryStats');
+            categoryStatsDiv.innerHTML = '';
+            
+            if (Object.keys(categoryStats).length === 0) {
+                categoryStatsDiv.innerHTML = '<p class="text-gray-500 text-sm">No hay datos de ventas</p>';
+            } else {
+                Object.keys(categoryStats).sort((a, b) => categoryStats[b] - categoryStats[a]).forEach(category => {
+                    const percentage = totalSold > 0 ? ((categoryStats[category] / totalSold) * 100).toFixed(1) : 0;
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center';
+                    div.innerHTML = `
+                        <span class="text-sm text-gray-700">${category}</span>
+                        <div class="flex items-center">
+                            <span class="text-sm font-semibold text-gray-900 mr-2">${categoryStats[category]}</span>
+                            <span class="text-xs text-gray-500">(${percentage}%)</span>
+                        </div>
+                    `;
+                    categoryStatsDiv.appendChild(div);
+                });
+            }
+            
+            // Color statistics
+            const colorStats = {};
+            sales.forEach(sale => {
+                const color = sale.color.toLowerCase();
+                colorStats[color] = (colorStats[color] || 0) + sale.quantity;
+            });
+            
+            const colorStatsDiv = document.getElementById('colorStats');
+            colorStatsDiv.innerHTML = '';
+            
+            if (Object.keys(colorStats).length === 0) {
+                colorStatsDiv.innerHTML = '<p class="text-gray-500 text-sm">No hay datos de colores</p>';
+            } else {
+                Object.keys(colorStats).sort((a, b) => colorStats[b] - colorStats[a]).slice(0, 5).forEach(color => {
+                    const percentage = totalSold > 0 ? ((colorStats[color] / totalSold) * 100).toFixed(1) : 0;
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center';
+                    div.innerHTML = `
+                        <span class="text-sm text-gray-700 capitalize">${color}</span>
+                        <div class="flex items-center">
+                            <span class="text-sm font-semibold text-gray-900 mr-2">${colorStats[color]}</span>
+                            <span class="text-xs text-gray-500">(${percentage}%)</span>
+                        </div>
+                    `;
+                    colorStatsDiv.appendChild(div);
+                });
+            }
+            
+            // Low stock alert
+            const lowStockItems = [];
+            shoes.forEach(shoe => {
+                for (let size = 12; size <= 30; size++) {
+                    const quantity = inventory[shoe] && inventory[shoe][size] ? inventory[shoe][size] : 0;
+                    if (quantity < 5) {
+                        lowStockItems.push({ shoe, size, quantity });
+                    }
+                    
+                    if (size < 30) {
+                        const halfSize = size + 0.5;
+                        const halfQuantity = inventory[shoe] && inventory[shoe][halfSize] ? inventory[shoe][halfSize] : 0;
+                        if (halfQuantity < 5) {
+                            lowStockItems.push({ shoe, size: size + '½', quantity: halfQuantity });
+                        }
+                    }
+                }
+            });
+            
+            const lowStockDiv = document.getElementById('lowStockAlert');
+            lowStockDiv.innerHTML = '';
+            
+            if (lowStockItems.length === 0) {
+                lowStockDiv.innerHTML = '<p class="text-green-600 text-sm">✅ Todos los productos tienen stock suficiente</p>';
+                lowStockDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
+            } else {
+                lowStockDiv.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
+                const itemsHtml = lowStockItems.map(item => {
+                    const colorClass = item.quantity === 0 ? 'text-red-600 font-bold' : 'text-orange-600';
+                    const status = item.quantity === 0 ? 'AGOTADO' : `${item.quantity} unidades`;
+                    return `<span class="inline-block mr-4 mb-2 px-3 py-1 bg-white rounded-full text-sm border">
+                        ${item.shoe}-${item.size}: <span class="${colorClass}">${status}</span>
+                    </span>`;
+                }).join('');
+                lowStockDiv.innerHTML = itemsHtml;
+            }
+        }
+
+        // Generate report
+        function generateReport() {
+            const filterShoe = document.getElementById('filterShoe').value;
+            const filterCategory = document.getElementById('filterCategory').value;
+            const filterColor = document.getElementById('filterColor').value.toLowerCase();
+            const filterModel = document.getElementById('filterModel').value;
+            const filterSize = document.getElementById('filterSize').value;
+            
+            // Filter sales
+            let filteredSales = sales.filter(sale => {
+                return (!filterShoe || sale.shoe === filterShoe) &&
+                       (!filterCategory || sale.category === filterCategory) &&
+                       (!filterColor || sale.color.toLowerCase().includes(filterColor)) &&
+                       (!filterModel || sale.model === filterModel) &&
+                       (!filterSize || sale.size.toString() === filterSize);
+            });
+            
+            // Group by shoe
+            const report = {};
+            filteredSales.forEach(sale => {
+                if (!report[sale.shoe]) {
+                    report[sale.shoe] = {
+                        totalSold: 0,
+                        sizes: {},
+                        colors: {},
+                        categories: {}
+                    };
+                }
+                
+                report[sale.shoe].totalSold += sale.quantity;
+                report[sale.shoe].sizes[sale.size] = (report[sale.shoe].sizes[sale.size] || 0) + sale.quantity;
+                report[sale.shoe].colors[sale.color] = (report[sale.shoe].colors[sale.color] || 0) + sale.quantity;
+                report[sale.shoe].categories[sale.category] = (report[sale.shoe].categories[sale.category] || 0) + sale.quantity;
+            });
+            
+            // Render report
+            const tbody = document.getElementById('reportTable');
+            tbody.innerHTML = '';
+            
+            Object.keys(report).sort((a, b) => report[b].totalSold - report[a].totalSold).forEach(shoe => {
+                const data = report[shoe];
+                
+                const topSizes = Object.keys(data.sizes).sort((a, b) => data.sizes[b] - data.sizes[a]).slice(0, 3).join(', ');
+                const topColors = Object.keys(data.colors).sort((a, b) => data.colors[b] - data.colors[a]).slice(0, 3).join(', ');
+                const topCategory = Object.keys(data.categories).sort((a, b) => data.categories[b] - data.categories[a])[0];
+                
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="border border-gray-300 px-4 py-3 font-semibold">${shoe}</td>
+                    <td class="border border-gray-300 px-4 py-3 text-center font-semibold text-blue-600">${data.totalSold}</td>
+                    <td class="border border-gray-300 px-4 py-3">${topSizes}</td>
+                    <td class="border border-gray-300 px-4 py-3">${topColors}</td>
+                    <td class="border border-gray-300 px-4 py-3">${topCategory}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('reportResults').classList.remove('hidden');
+        }
+
+        // Clear notifications
+        function clearNotifications() {
+            adminNotifications = [];
+            saveData();
+            renderNotifications();
+        }
+
+        // Render notifications
+        function renderNotifications() {
+            const notificationsList = document.getElementById('notificationsList');
+            const notificationBadge = document.getElementById('notificationBadge');
+            
+            if (adminNotifications.length === 0) {
+                notificationsList.innerHTML = '<div class="text-gray-500 text-sm italic">No hay notificaciones nuevas</div>';
+                notificationBadge.classList.add('hidden');
+                return;
+            }
+            
+            notificationBadge.textContent = adminNotifications.length;
+            notificationBadge.classList.remove('hidden');
+            
+            notificationsList.innerHTML = '';
+            
+            adminNotifications.slice().reverse().forEach(notification => {
+                const notificationDiv = document.createElement('div');
+                notificationDiv.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded';
+                
+                notificationDiv.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-semibold text-gray-800">${notification.employee} - Inventario del ${notification.date}</h4>
+                            <p class="text-sm text-gray-600 mt-1">Inventario registrado correctamente</p>
+                            <p class="text-xs text-gray-500 mt-2">Registrado: ${notification.timestamp}</p>
+                        </div>
+                    </div>
+                `;
+                
+                notificationsList.appendChild(notificationDiv);
+            });
+        }
+
+        // Render inventory data
+        function renderInventoryData() {
+            const inventoryDataList = document.getElementById('inventoryDataList');
+            inventoryDataList.innerHTML = '';
+            
+            if (Object.keys(dailyInventories).length === 0) {
+                inventoryDataList.innerHTML = '<div class="text-gray-500 text-center py-8">No hay datos de inventario registrados</div>';
+                return;
+            }
+            
+            // Sort by date (newest first)
+            const sortedKeys = Object.keys(dailyInventories).sort((a, b) => {
+                const dateA = a.split('_')[1];
+                const dateB = b.split('_')[1];
+                return dateB.localeCompare(dateA);
+            });
+            
+            const userNames = {
+                'admin': 'Administrador',
+                'empleada1': 'Empleada 1',
+                'empleada2': 'Empleada 2',
+                'empleada3': 'Empleada 3'
+            };
+            
+            sortedKeys.forEach(key => {
+                const [user, date] = key.split('_');
+                const inventoryData = dailyInventories[key];
+                
+                const inventoryDiv = document.createElement('div');
+                inventoryDiv.className = 'bg-gray-50 rounded-lg p-6 border border-gray-200';
+                
+                // Calculate total items
+                let totalItems = 0;
+                const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                shoes.forEach(shoe => {
+                    for (let size = 12; size <= 30; size++) {
+                        totalItems += inventoryData[shoe] && inventoryData[shoe][size] ? inventoryData[shoe][size] : 0;
+                        if (size < 30) {
+                            const halfSize = size + 0.5;
+                            totalItems += inventoryData[shoe] && inventoryData[shoe][halfSize] ? inventoryData[shoe][halfSize] : 0;
+                        }
+                    }
+                });
+                
+                inventoryDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">${userNames[user] || user} - ${date}</h3>
+                            <p class="text-sm text-gray-600">Total de zapatos: ${totalItems.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">Inventario registrado correctamente</p>
+                `;
+                
+                inventoryDataList.appendChild(inventoryDiv);
+            });
+        }
+
+        // Filter inventory data
+        function filterInventoryData() {
+            const filterDate = document.getElementById('inventoryDateFilter').value;
+            if (!filterDate) {
+                alert('Por favor seleccione una fecha');
+                return;
+            }
+            
+            const inventoryDataList = document.getElementById('inventoryDataList');
+            inventoryDataList.innerHTML = '';
+            
+            const filteredKeys = Object.keys(dailyInventories).filter(key => key.includes(`_${filterDate}`));
+            
+            if (filteredKeys.length === 0) {
+                inventoryDataList.innerHTML = '<div class="text-gray-500 text-center py-8">No hay datos de inventario para esta fecha</div>';
+                return;
+            }
+            
+            const userNames = {
+                'admin': 'Administrador',
+                'empleada1': 'Empleada 1',
+                'empleada2': 'Empleada 2',
+                'empleada3': 'Empleada 3'
+            };
+            
+            filteredKeys.forEach(key => {
+                const [user, date] = key.split('_');
+                const inventoryData = dailyInventories[key];
+                
+                const inventoryDiv = document.createElement('div');
+                inventoryDiv.className = 'bg-gray-50 rounded-lg p-6 border border-gray-200';
+                
+                // Calculate total items
+                let totalItems = 0;
+                const shoes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                shoes.forEach(shoe => {
+                    for (let size = 12; size <= 30; size++) {
+                        totalItems += inventoryData[shoe] && inventoryData[shoe][size] ? inventoryData[shoe][size] : 0;
+                        if (size < 30) {
+                            const halfSize = size + 0.5;
+                            totalItems += inventoryData[shoe] && inventoryData[shoe][halfSize] ? inventoryData[shoe][halfSize] : 0;
+                        }
+                    }
+                });
+                
+                inventoryDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">${userNames[user] || user} - ${date}</h3>
+                            <p class="text-sm text-gray-600">Total de zapatos: ${totalItems.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600">Inventario registrado correctamente</p>
+                `;
+                
+                inventoryDataList.appendChild(inventoryDiv);
+            });
+        }
+
+        // Show all inventory data
+        function showAllInventoryData() {
+            document.getElementById('inventoryDateFilter').value = '';
+            renderInventoryData();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            const data = {
+                inventory: inventory,
+                sales: sales,
+                dailyInventories: dailyInventories,
+                adminNotifications: adminNotifications,
+                lastSaved: new Date().toISOString()
+            };
+            localStorage.setItem('casaZapatoData', JSON.stringify(data));
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('casaZapatoData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                inventory = data.inventory || {};
+                sales = data.sales || [];
+                dailyInventories = data.dailyInventories || {};
+                adminNotifications = data.adminNotifications || [];
+            }
+        }
+
+        // Allow Enter key to login
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    login();
+                }
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96dbc06412519382',t:'MTc1NDk1NzQ0Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
